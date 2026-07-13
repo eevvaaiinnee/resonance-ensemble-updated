@@ -1,0 +1,2177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Resonance — Ensemble Wireframe</title>
+<style>
+  :root {
+    --bg: #16121c;
+    --bg-stage: #1d1825;
+    --line: #2c2536;
+    --line-soft: #241e2e;
+    --ink: #e9e2d8;
+    --ink-dim: #8d8496;
+    --ink-faint: #5e5668;
+
+    --bowl: #c9a15a;     /* Tibetan singing bowls — warm brass */
+    --bowl-glow: #e8c585;
+    --handpan: #c97b5a;  /* Handpan — copper */
+    --handpan-glow: #e89d76;
+    --chime: #9fc7d4;    /* Wind chimes — pale blue-white */
+    --chime-glow: #c7e6ef;
+    --synth: #9b8bc4;    /* Soft ambient synth — violet */
+    --synth-glow: #c2b3e8;
+
+    --miss: #7a4a52;
+    --empty: #2a2433;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  /* only the lobby screen scrolls, so the game/room screens keep their
+     original fixed, non-scrolling behavior */
+  #screen-lobby.visible { overflow-y: auto; overflow-x: hidden; }
+
+  .data {
+    font-family: "JetBrains Mono", "SF Mono", Consolas, monospace;
+    letter-spacing: 0.02em;
+  }
+
+  #app {
+    width: 100%;
+    height: 100vh;
+    position: relative;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: none;
+  }
+  .screen.visible { display: flex; }
+
+  /* ====================================================================
+     SCREEN 1 — LOBBY
+  ==================================================================== */
+  #screen-lobby {
+    flex-direction: column;
+    align-items: stretch;
+    background:
+      radial-gradient(ellipse 900px 600px at 50% 30%, #221c2c, transparent),
+      var(--bg);
+    text-align: center;
+  }
+
+  .lobby-hero {
+    flex: 0 0 auto;
+    min-height: calc(100vh - 86px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 40px 24px 12px;
+  }
+
+  .scroll-hint {
+    margin-top: 8px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    animation: hintBob 2.2s ease-in-out infinite;
+  }
+  @keyframes hintBob {
+    0%, 100% { transform: translateY(0); opacity: 0.6; }
+    50% { transform: translateY(4px); opacity: 1; }
+  }
+
+  .rooms-section {
+    flex: 1 0 auto;
+    padding: 18px 24px 56px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .rooms-heading {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .rooms-subheading {
+    margin: 6px 0 22px;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+
+  .rooms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  .room-card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--bg-stage);
+    padding: 14px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s ease, transform 0.12s ease, background 0.2s ease;
+  }
+  .room-card.open {
+    cursor: pointer;
+  }
+  .room-card.open:hover {
+    border-color: var(--chime-glow);
+    transform: translateY(-2px);
+  }
+  .room-card.open:active {
+    transform: translateY(0) scale(0.98);
+  }
+  .room-card.full {
+    opacity: 0.55;
+  }
+
+  .room-card-id {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+  }
+
+  .room-seats-mini {
+    display: flex;
+    gap: 6px;
+  }
+  .mini-seat {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--empty);
+  }
+  .mini-seat.filled[data-instr="bowl"]    { background: var(--bowl);    border-color: var(--bowl-glow); }
+  .mini-seat.filled[data-instr="handpan"] { background: var(--handpan); border-color: var(--handpan-glow); }
+  .mini-seat.filled[data-instr="chime"]   { background: var(--chime);   border-color: var(--chime-glow); }
+  .mini-seat.filled[data-instr="synth"]   { background: var(--synth);  border-color: var(--synth-glow); }
+
+  .room-card-status {
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    color: var(--ink-faint);
+  }
+  .room-card.open .room-card-status {
+    color: var(--chime-glow);
+    border-color: var(--chime-glow);
+  }
+  .room-card.full .room-card-status {
+    color: var(--ink-faint);
+  }
+
+  .lobby-eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .lobby-title {
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .lobby-title .accent { color: var(--bowl-glow); }
+
+  .lobby-sub {
+    font-size: 14px;
+    color: var(--ink-dim);
+    max-width: 440px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .instrument-row {
+    display: flex;
+    gap: 22px;
+    margin: 6px 0;
+  }
+  .instrument-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.85;
+  }
+  .instrument-chip .chip-glyph {
+    width: 40px;
+    height: 40px;
+  }
+  .instrument-chip .chip-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+
+  #joinBtn {
+    background: var(--bowl);
+    color: #1d1620;
+    border: none;
+    padding: 14px 34px;
+    border-radius: 7px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.1s ease;
+  }
+  #joinBtn:hover { filter: brightness(1.12); }
+  #joinBtn:active { transform: scale(0.98); }
+
+  .lobby-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+  .lobby-stats .stat-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+  }
+  .stat-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--chime-glow);
+    box-shadow: 0 0 6px var(--chime-glow);
+    animation: dotPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes dotPulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+  .lobby-stats .num { color: var(--ink); font-weight: 600; }
+
+  /* ====================================================================
+     SCREEN 2 — ROOM (waiting / ready-up)
+  ==================================================================== */
+  #screen-room {
+    flex-direction: column;
+    background: var(--bg-stage);
+  }
+
+  #room-topbar {
+    flex: 0 0 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--line);
+  }
+  #room-topbar .room-title {
+    font-size: 14px;
+    color: var(--ink-dim);
+    letter-spacing: 0.04em;
+  }
+  #room-topbar .room-title b { color: var(--ink); }
+  #room-status-msg {
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+
+  #room-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 36px;
+    position: relative;
+  }
+
+  .seats-row {
+    display: flex;
+    gap: 28px;
+  }
+
+  .seat {
+    width: 168px;
+    height: 220px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    position: relative;
+    transition: border-color 0.3s ease, background 0.3s ease;
+    overflow: hidden;
+  }
+
+  .seat .seat-glyph {
+    width: 64px;
+    height: 64px;
+    filter: grayscale(1) brightness(0.55);
+    transition: filter 0.4s ease, transform 0.3s ease;
+  }
+  .seat.filled .seat-glyph {
+    filter: none;
+  }
+  .seat.you .seat-glyph {
+    transform: scale(1.05);
+  }
+
+  .seat .seat-instr-name {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+  .seat.filled .seat-instr-name { color: var(--ink-dim); }
+
+  .seat .seat-state {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    color: var(--ink-faint);
+    background: rgba(0,0,0,0.2);
+  }
+  .seat.filled .seat-state { color: var(--ink-dim); border-color: var(--line-soft); }
+  .seat.ready .seat-state {
+    color: var(--seat-color);
+    border-color: var(--seat-color);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .seat.empty {
+    background: repeating-linear-gradient(
+      135deg, var(--empty), var(--empty) 10px, #251f2e 10px, #251f2e 20px
+    );
+  }
+
+  .seat[data-instr="bowl"]    { --seat-color: var(--bowl-glow); }
+  .seat[data-instr="handpan"] { --seat-color: var(--handpan-glow); }
+  .seat[data-instr="chime"]   { --seat-color: var(--chime-glow); }
+  .seat[data-instr="synth"]   { --seat-color: var(--synth-glow); }
+
+  .seat.ready { border-color: var(--seat-color); box-shadow: 0 0 22px -4px var(--seat-color); }
+
+  .seat .you-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bg-stage);
+    background: var(--bowl-glow);
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+
+  .seat .ready-key {
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .seat.filled .ready-key { color: var(--ink-dim); }
+
+  #room-helper {
+    font-size: 13px;
+    color: var(--ink-dim);
+    text-align: center;
+    max-width: 480px;
+    line-height: 1.5;
+    min-height: 40px;
+  }
+
+  #room-countdown {
+    font-size: 72px;
+    font-weight: 700;
+    color: var(--bowl-glow);
+    min-height: 90px;
+    display: none;
+  }
+  #room-countdown.visible { display: block; }
+
+  /* ====================================================================
+     SCREEN 3 — GAME (existing rhythm experience)
+  ==================================================================== */
+  #screen-game {
+    flex-direction: column;
+  }
+
+  #topbar {
+    height: 64px;
+    flex: 0 0 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #1b1622, #16121c);
+  }
+
+  #topbar .title {
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  #topbar .title b { color: var(--ink); font-weight: 600; }
+
+  #topbar .stats {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .stat { text-align: right; }
+  .stat .label {
+    font-size: 10px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .stat .value {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  #combo-value { color: var(--bowl-glow); }
+  #acc-value { color: var(--chime-glow); }
+
+  #muteBtn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink-dim);
+    width: 34px;
+    height: 34px;
+    border-radius: 5px;
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  #muteBtn:hover { border-color: var(--ink-dim); color: var(--ink); }
+  #muteBtn.muted { color: var(--miss); border-color: var(--miss); }
+
+  #startBtn {
+    background: var(--bowl);
+    color: #1d1620;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: filter 0.15s ease, opacity 0.2s ease;
+  }
+  #startBtn:hover { filter: brightness(1.12); }
+  #startBtn:active { filter: brightness(0.9); }
+  #startBtn.playing { background: var(--line); color: var(--ink-faint); cursor: default; }
+
+  /* ---------- End-of-song results modal ---------- */
+  .modal-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 8, 14, 0.72);
+    backdrop-filter: blur(2px);
+  }
+  .modal-overlay.visible { display: flex; }
+
+  .modal-card {
+    background: var(--bg-stage);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 36px 40px;
+    text-align: center;
+    max-width: 360px;
+    box-shadow: 0 20px 60px -10px rgba(0,0,0,0.5);
+  }
+  .modal-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 10px;
+  }
+  .modal-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--bowl-glow);
+    margin-bottom: 14px;
+  }
+  .modal-body {
+    font-size: 14px;
+    color: var(--ink-dim);
+    line-height: 1.5;
+    margin: 0 0 26px;
+  }
+  .modal-body span { color: var(--ink); font-weight: 700; }
+  #modal-lobby-btn {
+    background: var(--bowl);
+    color: #1d1620;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.1s ease;
+  }
+  #modal-lobby-btn:hover { filter: brightness(1.12); }
+  #modal-lobby-btn:active { transform: scale(0.98); }
+
+  /* ---------- Stage (upper 2/3) ---------- */
+  #stage {
+    flex: 2 1 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--bg-stage);
+    position: relative;
+  }
+
+  #stage::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    background: var(--line);
+  }
+
+  .zone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .zone:last-child { border-right: none; }
+
+  .zone .floor-spot {
+    position: absolute;
+    bottom: 14%;
+    width: 64%;
+    height: 30%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.05), transparent 70%);
+  }
+
+  .zone .floor-spot.idle-pulse {
+    animation: floorBreathe 2.4s ease-in-out infinite;
+  }
+  @keyframes floorBreathe {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  .ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid var(--ring-color, var(--ink));
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @keyframes ringPulse {
+    0%   { width: 30px; height: 30px; opacity: 0.9; }
+    100% { width: 260px; height: 260px; opacity: 0; }
+  }
+  .ring.firing {
+    animation: ringPulse 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+  }
+
+  .glyph-wrap {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .glyph {
+    width: 72px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.12s ease, filter 0.12s ease;
+  }
+  .glyph svg { width: 100%; height: 100%; }
+
+  .zone.hit .glyph {
+    transform: scale(1.18);
+  }
+  .zone.miss .glyph {
+    filter: saturate(0.3) brightness(0.7);
+  }
+
+  .instr-name {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-dim);
+  }
+
+  .zone[data-instr="bowl"]    { --zone-color: var(--bowl); }
+  .zone[data-instr="handpan"] { --zone-color: var(--handpan); }
+  .zone[data-instr="chime"]   { --zone-color: var(--chime); }
+  .zone[data-instr="synth"]   { --zone-color: var(--synth); }
+
+  /* a player who has left mid-song: their section greys out completely */
+  .zone.vacant {
+    background: repeating-linear-gradient(
+      135deg, #1a1620, #1a1620 10px, #1f1a26 10px, #1f1a26 20px
+    );
+  }
+  .zone.vacant .glyph svg { filter: grayscale(1) brightness(0.4); }
+  .zone.vacant .instr-name { color: var(--ink-faint); }
+  .zone.vacant .floor-spot { animation: none; opacity: 0.15; }
+  .zone .vacant-msg {
+    position: absolute;
+    bottom: 14px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 3;
+    pointer-events: none;
+  }
+  .zone.vacant .vacant-msg { opacity: 1; }
+
+  .zone.you .glyph-wrap::after {
+    content: "You";
+    position: absolute;
+    top: -2px;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bg-stage);
+    background: var(--zone-color);
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+
+  .missflash {
+    position: absolute;
+    inset: 0;
+    background: var(--miss);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .missflash.firing {
+    animation: missFlash 0.35s ease-out forwards;
+  }
+  @keyframes missFlash {
+    0% { opacity: 0.45; }
+    100% { opacity: 0; }
+  }
+
+  /* ---------- Track (lower 1/3) ---------- */
+  #track-section {
+    flex: 1 1 0;
+    background: #110e16;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+  }
+
+  #lanes {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .lane-combined {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .hitline {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: var(--hitline-x, 90px);
+    width: 3px;
+    background: var(--ink);
+    opacity: 0.35;
+    z-index: 4;
+  }
+
+  .hitline-glow {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: calc(var(--hitline-x, 90px) - 24px);
+    width: 48px;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.06), transparent 75%);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .note {
+    position: absolute;
+    top: 50%;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.12) inset;
+    will-change: left;
+    z-index: 2;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+  }
+  .note.bowl    { background: radial-gradient(circle at 35% 30%, var(--bowl-glow), var(--bowl)); }
+  .note.handpan { background: radial-gradient(circle at 35% 30%, var(--handpan-glow), var(--handpan)); }
+  .note.chime   { background: radial-gradient(circle at 35% 30%, var(--chime-glow), var(--chime)); }
+  .note.synth   { background: radial-gradient(circle at 35% 30%, var(--synth-glow), var(--synth)); }
+
+  /* Your instrument's notes are full presence; everyone else's notes are
+     dimmed so your part reads clearly against the rest of the ensemble. */
+  .note.not-mine {
+    opacity: 0.32;
+  }
+  .note.mine {
+    opacity: 1;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.25) inset, 0 0 14px -2px currentColor;
+  }
+
+  /* a departed player's notes still scroll by (so the gap is visible)
+     but are nearly invisible and silent — there's no one to hit them */
+  .note.vacant {
+    opacity: 0.12;
+    filter: grayscale(0.6);
+  }
+
+  .note.judged {
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+  .note.judged.good {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.8);
+  }
+  .note.judged.bad {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+
+  .judge-pop {
+    position: absolute;
+    top: 50%;
+    left: var(--hitline-x, 90px);
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+  }
+  .judge-pop.show.good { animation: popGood 0.55s ease-out forwards; }
+  .judge-pop.show.bad  { animation: popBad 0.55s ease-out forwards; }
+
+  @keyframes popGood {
+    0%   { opacity: 0; transform: translate(-50%, -50%) translateY(0) scale(0.8); }
+    25%  { opacity: 1; transform: translate(-50%, -50%) translateY(-6px) scale(1.05); }
+    100% { opacity: 0; transform: translate(-50%, -50%) translateY(-26px) scale(1); }
+  }
+  @keyframes popBad {
+    0%   { opacity: 0; transform: translate(-50%, -50%) translateY(0); }
+    20%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) translateY(14px); }
+  }
+
+  /* ---------- Bottom control strip ---------- */
+  #controls {
+    flex: 0 0 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-top: 1px solid var(--line);
+    background: #15111a;
+  }
+
+  .key-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--ink-dim);
+  }
+  .key-hint .k {
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--ink);
+    background: rgba(255,255,255,0.03);
+  }
+  .key-hint .k.lit { transition: background 0.1s, border-color 0.1s; }
+  .key-hint .or-tap {
+    font-size: 10px;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  #status-msg {
+    margin-left: 18px;
+    font-size: 12px;
+    color: var(--ink-dim);
+  }
+
+  /* ====================================================================
+     MOBILE — room "ready-up" seats and game-screen stage go 2x2 instead
+     of side-by-side-by-side-by-side, so all 4 instruments fit on a
+     phone screen without shrinking to illegibility.
+  ==================================================================== */
+  @media (max-width: 640px) {
+    .seats-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      padding: 0 18px;
+      max-width: 420px;
+    }
+    .seat {
+      width: auto;
+      height: 170px;
+    }
+    .seat .seat-glyph {
+      width: 48px;
+      height: 48px;
+    }
+
+    #stage {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+    }
+    .zone {
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .zone:nth-child(2n) { border-right: none; }
+    .zone:nth-child(n+3) { border-bottom: none; }
+    .glyph-wrap { gap: 8px; }
+    .glyph { width: 46px; height: 46px; }
+    .instr-name { font-size: 10px; }
+
+    #topbar { padding: 0 14px; }
+    #topbar .title { font-size: 12px; }
+    #topbar .stats { gap: 10px; }
+
+    #controls {
+      flex-direction: column;
+      height: auto;
+      padding: 8px 14px;
+      gap: 4px;
+    }
+    #status-msg {
+      margin-left: 0;
+      text-align: center;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ================= SCREEN 1: LOBBY ================= -->
+  <div class="screen visible" id="screen-lobby">
+
+    <div class="lobby-hero">
+      <div class="lobby-eyebrow">A collaborative ambient rhythm piece</div>
+      <h1 class="lobby-title">Resonance <span class="accent">Ensemble</span></h1>
+      <p class="lobby-sub">Four parts, one piece. Join a room and you'll be assigned an instrument — Tibetan singing bowls, handpan, wind chimes, or ambient synth. The song only truly plays once all four of you are there.</p>
+
+      <div class="instrument-row">
+        <div class="instrument-chip">
+          <div class="chip-glyph" id="lobby-glyph-bowl"></div>
+          <div class="chip-label">Bowls</div>
+        </div>
+        <div class="instrument-chip">
+          <div class="chip-glyph" id="lobby-glyph-handpan"></div>
+          <div class="chip-label">Handpan</div>
+        </div>
+        <div class="instrument-chip">
+          <div class="chip-glyph" id="lobby-glyph-chime"></div>
+          <div class="chip-label">Chimes</div>
+        </div>
+        <div class="instrument-chip">
+          <div class="chip-glyph" id="lobby-glyph-synth"></div>
+          <div class="chip-label">Synth</div>
+        </div>
+      </div>
+
+      <button id="joinBtn">Join the ensemble</button>
+
+      <div class="lobby-stats">
+        <div class="stat-line"><span class="stat-dot"></span> <span class="num" id="lobby-full-rooms">—</span> full rooms currently playing</div>
+        <div class="stat-line">The next room to fill is missing <span class="num" id="lobby-missing-count">—</span> people</div>
+      </div>
+
+      <div class="scroll-hint">Scroll for rooms &amp; seats ↓</div>
+    </div>
+
+    <div class="rooms-section">
+      <div class="rooms-heading">Rooms &amp; seats</div>
+      <p class="rooms-subheading">Pick an open seat, or let the ensemble choose for you.</p>
+      <div class="rooms-grid" id="rooms-grid"></div>
+    </div>
+
+  </div>
+
+  <!-- ================= SCREEN 2: ROOM (waiting / ready-up) ================= -->
+  <div class="screen" id="screen-room">
+    <div id="room-topbar">
+      <div class="room-title">Room <b id="room-id-label">#--</b> · waiting for the ensemble</div>
+      <div id="room-status-msg">0 / 4 joined</div>
+    </div>
+
+    <div id="room-body">
+      <div class="seats-row" id="seats-row">
+        <!-- seats injected by JS, one per instrument, in fixed order -->
+      </div>
+
+      <div id="room-countdown">3</div>
+
+      <div id="room-helper">Waiting for more players to join…</div>
+    </div>
+  </div>
+
+  <!-- ================= SCREEN 3: GAME ================= -->
+  <div class="screen" id="screen-game">
+
+    <div class="modal-overlay" id="results-modal">
+      <div class="modal-card">
+        <div class="modal-eyebrow">Song complete</div>
+        <div class="modal-title">Congratulations!</div>
+        <p class="modal-body">The highest combo your team made is <span id="modal-combo">0</span>/<span id="modal-total">0</span>.</p>
+        <button id="modal-lobby-btn">Back to lobby</button>
+      </div>
+    </div>
+
+    <div id="topbar">
+      <div class="title">Resonance <b>— Ensemble</b></div>
+      <div class="stats">
+        <div class="stat">
+          <div class="label">Combo</div>
+          <div class="value data" id="combo-value">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Accuracy</div>
+          <div class="value data" id="acc-value">—</div>
+        </div>
+        <button id="muteBtn" title="Mute">🔊</button>
+        <button id="startBtn">Start song</button>
+      </div>
+    </div>
+
+    <div id="stage">
+      <div class="zone" data-instr="bowl">
+        <div class="floor-spot idle-pulse"></div>
+        <div class="glyph-wrap">
+          <div class="glyph" id="glyph-bowl">
+            <svg viewBox="0 0 64 64" fill="none">
+              <ellipse cx="32" cy="44" rx="22" ry="8" fill="var(--bowl)" opacity="0.9"/>
+              <path d="M10 44 Q10 24 32 24 Q54 24 54 44" stroke="var(--bowl-glow)" stroke-width="3" fill="none"/>
+              <circle cx="32" cy="18" r="3" fill="var(--bowl-glow)"/>
+            </svg>
+          </div>
+          <div class="instr-name">Singing Bowl</div>
+        </div>
+        <div class="missflash" id="flash-bowl"></div>
+        <div class="vacant-msg" id="vacantmsg-bowl">Seat open — waiting for a player</div>
+      </div>
+
+      <div class="zone" data-instr="handpan">
+        <div class="floor-spot idle-pulse"></div>
+        <div class="glyph-wrap">
+          <div class="glyph" id="glyph-handpan">
+            <svg viewBox="0 0 64 64" fill="none">
+              <ellipse cx="32" cy="32" rx="24" ry="20" fill="var(--handpan)" opacity="0.9"/>
+              <circle cx="32" cy="28" r="6" fill="var(--handpan-glow)"/>
+              <circle cx="20" cy="36" r="3" fill="var(--handpan-glow)" opacity="0.7"/>
+              <circle cx="44" cy="36" r="3" fill="var(--handpan-glow)" opacity="0.7"/>
+            </svg>
+          </div>
+          <div class="instr-name">Handpan</div>
+        </div>
+        <div class="missflash" id="flash-handpan"></div>
+        <div class="vacant-msg" id="vacantmsg-handpan">Seat open — waiting for a player</div>
+      </div>
+
+      <div class="zone" data-instr="chime">
+        <div class="floor-spot idle-pulse"></div>
+        <div class="glyph-wrap">
+          <div class="glyph" id="glyph-chime">
+            <svg viewBox="0 0 64 64" fill="none">
+              <rect x="30" y="6" width="4" height="10" fill="var(--chime-glow)"/>
+              <line x1="18" y1="16" x2="18" y2="42" stroke="var(--chime)" stroke-width="3"/>
+              <line x1="28" y1="16" x2="28" y2="50" stroke="var(--chime)" stroke-width="3"/>
+              <line x1="38" y1="16" x2="38" y2="38" stroke="var(--chime)" stroke-width="3"/>
+              <line x1="48" y1="16" x2="48" y2="46" stroke="var(--chime)" stroke-width="3"/>
+            </svg>
+          </div>
+          <div class="instr-name">Wind Chimes</div>
+        </div>
+        <div class="missflash" id="flash-chime"></div>
+        <div class="vacant-msg" id="vacantmsg-chime">Seat open — waiting for a player</div>
+      </div>
+
+      <div class="zone" data-instr="synth">
+        <div class="floor-spot idle-pulse"></div>
+        <div class="glyph-wrap">
+          <div class="glyph" id="glyph-synth">
+            <svg viewBox="0 0 64 64" fill="none">
+              <path d="M6 40 Q16 16 26 40 T46 40 T58 40" stroke="var(--synth)" stroke-width="3" fill="none"/>
+              <path d="M6 46 Q16 30 26 46 T46 46 T58 46" stroke="var(--synth-glow)" stroke-width="2" fill="none" opacity="0.6"/>
+            </svg>
+          </div>
+          <div class="instr-name">Ambient Synth</div>
+        </div>
+        <div class="missflash" id="flash-synth"></div>
+        <div class="vacant-msg" id="vacantmsg-synth">Seat open — waiting for a player</div>
+      </div>
+    </div>
+
+    <div id="track-section">
+      <div id="lanes">
+        <div class="lane lane-combined" data-instr="combined">
+        </div>
+        <div class="hitline-glow"></div>
+        <div class="hitline"></div>
+      </div>
+    </div>
+
+    <div id="controls">
+      <div class="key-hint"><div class="k k-space" id="kbtn-you">Space</div> <span class="or-tap">or tap</span> <span id="you-instr-label">Your instrument</span></div>
+      <div id="status-msg">Press Start, then hit Space or tap anywhere on the screen as your colored notes cross the line. Other players are keeping their own time.</div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ======================================================================
+  // SHARED CONSTANTS
+  // ======================================================================
+  const INSTRUMENTS = ["bowl", "handpan", "chime", "synth"];
+  const KEY_MAP = { "d": "bowl", "f": "handpan", "j": "chime", "k": "synth" };
+  const INSTRUMENT_LABELS = {
+    bowl: "Singing Bowl",
+    handpan: "Handpan",
+    chime: "Wind Chimes",
+    synth: "Ambient Synth",
+  };
+  const INSTRUMENT_KEYS = { bowl: "D", handpan: "F", chime: "J", synth: "K" }; // legacy per-instrument labels (no longer used for input; kept for reference)
+
+  function getCss(varName) {
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
+  const ZONE_COLORS = {}; // filled in once DOM is ready, used by both screens
+
+  // ======================================================================
+  // AUDIO ENGINE
+  // Synthesized in Web Audio (no sample files). Each instrument has its
+  // own timbre. A note only sounds when correctly hit — a missed or
+  // never-played instrument is simply absent from the mix. The
+  // background bed is the one constant: it always plays, and now carries
+  // an audible, melodic motif (not just a static drone) so an idle room
+  // — where nobody is hitting their notes — still clearly signals
+  // "the music is happening, you should be playing."
+  // ======================================================================
+  let actx = null;
+  let masterGain = null;
+  let roomSend = null;
+  let bedTimer = null;
+  let bedPlaying = false;
+
+  function ensureAudio() {
+    if (actx) return;
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = actx.createGain();
+    masterGain.gain.value = 0.85;
+    masterGain.connect(actx.destination);
+    buildRoom();
+  }
+
+  function now() { return actx.currentTime; }
+
+  function buildRoom() {
+    const delay = actx.createDelay(1.2);
+    delay.delayTime.value = 0.22;
+    const feedback = actx.createGain();
+    feedback.gain.value = 0.32;
+    const wetGain = actx.createGain();
+    wetGain.gain.value = 0.5;
+    delay.connect(feedback);
+    feedback.connect(delay);
+    delay.connect(wetGain);
+    wetGain.connect(masterGain);
+    roomSend = delay;
+  }
+
+  function sendToRoom(node, amount) {
+    const send = actx.createGain();
+    send.gain.value = amount;
+    node.connect(send);
+    send.connect(roomSend);
+  }
+
+  // ---------- Background bed ----------
+  // Root: A minor pentatonic (A, C, D, E, G).
+  // All instrument voices and the bed share this key — every hit is
+  // consonant, and the ensemble sounds like an actual arrangement rather
+  // than four unrelated synthesizers.
+  //
+  // Drone: A2 + E2 (fifth) + A3 (octave)  →  subtle, always-present tonic
+  // Motif: walks A–C–D–E–G–E–D–C in the A4–A5 register  →  clearly melodic,
+  //         makes it obvious "music is happening" even if no one is playing
+  //
+  // Per instrument:
+  //   Bowl   → A3 (220 Hz)  — root, long sustain, grounding
+  //   Handpan → E3 (165 Hz) — fifth, medium pluck, forward motion
+  //   Chime  → alternates A4 / C5 / E5 per hit  — bright sparkle up top
+  //   Synth  → A2–C3–E3 soft pad chord  — fills the harmonic middle
+
+  const ROOT = 110; // A2
+  function st(semis) { return ROOT * Math.pow(2, semis / 12); }
+
+  // Am pentatonic steps from A2 (semitone offsets): A C D E G A C D …
+  const MOTIF_STEPS = [12, 15, 17, 19, 22, 24, 27, 29]; // two octaves of Am pent starting at A3
+
+  function playBedDroneVoices(bedGain) {
+    const droneFreqs = [ROOT, ROOT * 1.5, ROOT * 2]; // A2, E2, A3
+    const lfo = actx.createOscillator();
+    lfo.frequency.value = 0.07;
+    const lfoGain = actx.createGain();
+    lfoGain.gain.value = 3;
+    lfo.connect(lfoGain);
+    lfo.start();
+
+    const oscs = [];
+    droneFreqs.forEach((freq, i) => {
+      const osc = actx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const detuneOsc = actx.createOscillator();
+      detuneOsc.type = "sine";
+      detuneOsc.frequency.value = freq * 1.003;
+      const voiceGain = actx.createGain();
+      voiceGain.gain.value = i === 0 ? 0.85 : 0.45;
+      const filter = actx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 800;
+      lfoGain.connect(filter.frequency);
+      osc.connect(voiceGain);
+      detuneOsc.connect(voiceGain);
+      voiceGain.connect(filter);
+      filter.connect(bedGain);
+      osc.start();
+      detuneOsc.start();
+      oscs.push(osc, detuneOsc);
+    });
+    return { oscs, lfo };
+  }
+
+  function playMotifNote(t, freq) {
+    const out = actx.createGain();
+    out.connect(masterGain);
+    sendToRoom(out, 0.4);
+    out.gain.setValueAtTime(0, t);
+    out.gain.linearRampToValueAtTime(0.18, t + 0.012);
+    out.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+    // triangle wave for a mellow melodic pluck sound
+    const osc = actx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+    const osc2 = actx.createOscillator();
+    osc2.type = "sine";
+    osc2.frequency.value = freq * 2;
+    const g2 = actx.createGain();
+    g2.gain.value = 0.2;
+    osc.connect(out);
+    osc2.connect(g2);
+    g2.connect(out);
+    osc.start(t);  osc.stop(t + 0.95);
+    osc2.start(t); osc2.stop(t + 0.95);
+  }
+
+  let padNodes = null;
+  let motifStep = 0;
+
+  function scheduleMotifStep() {
+    if (!bedPlaying) return;
+    const t = now() + 0.02;
+    const semis = MOTIF_STEPS[motifStep % MOTIF_STEPS.length];
+    playMotifNote(t, st(semis));
+    motifStep++;
+    // 8 steps × 750 ms = 6 s loop, aligns loosely with the 900 ms chart bar
+    bedTimer = setTimeout(scheduleMotifStep, 750);
+  }
+
+  function startBackgroundBed() {
+    const bedGain = actx.createGain();
+    bedGain.connect(masterGain);
+    sendToRoom(bedGain, 0.35);
+    bedGain.gain.setValueAtTime(0.0, now());
+    bedGain.gain.linearRampToValueAtTime(0.14, now() + 1.6);
+    const droneVoices = playBedDroneVoices(bedGain);
+    padNodes = { bedGain, ...droneVoices };
+    bedPlaying = true;
+    motifStep = 0;
+    scheduleMotifStep();
+  }
+
+  function stopBackgroundBed() {
+    bedPlaying = false;
+    if (bedTimer) clearTimeout(bedTimer);
+    if (!padNodes) return;
+    const { bedGain, oscs, lfo } = padNodes;
+    const t = now();
+    bedGain.gain.cancelScheduledValues(t);
+    bedGain.gain.setValueAtTime(bedGain.gain.value, t);
+    bedGain.gain.linearRampToValueAtTime(0, t + 0.8);
+    setTimeout(() => {
+      oscs.forEach(o => { try { o.stop(); } catch(e){} });
+      try { lfo.stop(); } catch(e){}
+    }, 900);
+    padNodes = null;
+  }
+
+  // ---------- Per-instrument voices — all tuned to Am pentatonic ----------
+
+  // Bowl: A3 (220 Hz) — root note, long inharmonic resonance
+  function playBowl() {
+    const t = now();
+    const f = st(12); // A3 = 220 Hz
+    const out = actx.createGain();
+    out.connect(masterGain);
+    sendToRoom(out, 0.55);
+    out.gain.setValueAtTime(0, t);
+    out.gain.linearRampToValueAtTime(0.5, t + 0.04);
+    out.gain.exponentialRampToValueAtTime(0.001, t + 3.2);
+    [[f, 1], [f * 2.756, 0.18], [f * 5.404, 0.07]].forEach(([freq, gain]) => {
+      const osc = actx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const g = actx.createGain(); g.gain.value = gain;
+      osc.connect(g); g.connect(out);
+      osc.start(t); osc.stop(t + 3.3);
+    });
+  }
+
+  // Handpan: E3 (165 Hz) — the fifth, metallic pluck
+  function playHandpan() {
+    const t = now();
+    const f = st(7); // E3 = 164.8 Hz
+    const out = actx.createGain();
+    out.connect(masterGain);
+    sendToRoom(out, 0.35);
+    out.gain.setValueAtTime(0, t);
+    out.gain.linearRampToValueAtTime(0.55, t + 0.007);
+    out.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+    [[f, "triangle", 1], [f * 2, "sine", 0.28], [f * 3, "sine", 0.1]].forEach(([freq, type, gain]) => {
+      const osc = actx.createOscillator();
+      osc.type = type;
+      osc.frequency.value = freq;
+      const g = actx.createGain(); g.gain.value = gain;
+      osc.connect(g); g.connect(out);
+      osc.start(t); osc.stop(t + 1.6);
+    });
+  }
+
+  // Chime: rotates through A4, C5, E5 on successive hits — airy, high
+  let chimeStep = 0;
+  const CHIME_FREQS = [st(24), st(27), st(31)]; // A4, C5, E5
+  function playChime() {
+    const t = now();
+    const base = CHIME_FREQS[chimeStep % CHIME_FREQS.length];
+    chimeStep++;
+    const out = actx.createGain();
+    out.connect(masterGain);
+    sendToRoom(out, 0.55);
+    out.gain.setValueAtTime(0, t);
+    out.gain.linearRampToValueAtTime(0.28, t + 0.003);
+    out.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+    [1, 1.5, 2.41, 3.8].forEach((mult, i) => {
+      const osc = actx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = base * mult * (1 + (Math.random() - 0.5) * 0.003);
+      const g = actx.createGain(); g.gain.value = 0.45 / (i + 1);
+      osc.connect(g); g.connect(out);
+      osc.start(t); osc.stop(t + 1.9);
+    });
+  }
+
+  // Synth: A2–C3–E3 soft pad chord (110, 130.8, 164.8 Hz) — warm harmonic fill
+  function playSynth() {
+    const t = now();
+    const chordFreqs = [st(0), st(3), st(7)]; // A2, C3, E3
+    const out = actx.createGain();
+    sendToRoom(out, 0.45);
+    const filter = actx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 1000;
+    out.connect(filter);
+    filter.connect(masterGain);
+    out.gain.setValueAtTime(0, t);
+    out.gain.linearRampToValueAtTime(0.32, t + 0.55);
+    out.gain.linearRampToValueAtTime(0.0, t + 2.8);
+    chordFreqs.forEach(freq => {
+      const osc = actx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.value = freq;
+      const voiceGain = actx.createGain(); voiceGain.gain.value = 0.3;
+      osc.connect(voiceGain); voiceGain.connect(out);
+      osc.start(t); osc.stop(t + 2.9);
+    });
+  }
+
+  // Ready chirp: a quick two-note rise in key (A4 → E5)
+  function playReadyChirp() {
+    if (!actx) return;
+    const t = now();
+    const out = actx.createGain();
+    out.connect(masterGain);
+    out.gain.setValueAtTime(0, t);
+    out.gain.linearRampToValueAtTime(0.28, t + 0.01);
+    out.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    const osc = actx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(st(24), t);       // A4
+    osc.frequency.setValueAtTime(st(31), t + 0.1); // E5
+    osc.connect(out);
+    osc.start(t); osc.stop(t + 0.23);
+  }
+
+  const INSTRUMENT_VOICES = { bowl: playBowl, handpan: playHandpan, chime: playChime, synth: playSynth };
+  function playInstrumentNote(instr) {
+    if (!actx) return;
+    const fn = INSTRUMENT_VOICES[instr];
+    if (fn) fn();
+  }
+
+  // ======================================================================
+  // SCREEN MANAGEMENT
+  // ======================================================================
+  const screens = {
+    lobby: document.getElementById("screen-lobby"),
+    room: document.getElementById("screen-room"),
+    game: document.getElementById("screen-game"),
+  };
+  function showScreen(name) {
+    Object.values(screens).forEach(el => el.classList.remove("visible"));
+    screens[name].classList.add("visible");
+  }
+
+  // small inline glyph builder reused for lobby chips and room seats
+  function glyphSVG(instr) {
+    switch (instr) {
+      case "bowl":
+        return '<svg viewBox="0 0 64 64" fill="none"><ellipse cx="32" cy="44" rx="22" ry="8" fill="var(--bowl)" opacity="0.9"/><path d="M10 44 Q10 24 32 24 Q54 24 54 44" stroke="var(--bowl-glow)" stroke-width="3" fill="none"/><circle cx="32" cy="18" r="3" fill="var(--bowl-glow)"/></svg>';
+      case "handpan":
+        return '<svg viewBox="0 0 64 64" fill="none"><ellipse cx="32" cy="32" rx="24" ry="20" fill="var(--handpan)" opacity="0.9"/><circle cx="32" cy="28" r="6" fill="var(--handpan-glow)"/><circle cx="20" cy="36" r="3" fill="var(--handpan-glow)" opacity="0.7"/><circle cx="44" cy="36" r="3" fill="var(--handpan-glow)" opacity="0.7"/></svg>';
+      case "chime":
+        return '<svg viewBox="0 0 64 64" fill="none"><rect x="30" y="6" width="4" height="10" fill="var(--chime-glow)"/><line x1="18" y1="16" x2="18" y2="42" stroke="var(--chime)" stroke-width="3"/><line x1="28" y1="16" x2="28" y2="50" stroke="var(--chime)" stroke-width="3"/><line x1="38" y1="16" x2="38" y2="38" stroke="var(--chime)" stroke-width="3"/><line x1="48" y1="16" x2="48" y2="46" stroke="var(--chime)" stroke-width="3"/></svg>';
+      case "synth":
+        return '<svg viewBox="0 0 64 64" fill="none"><path d="M6 40 Q16 16 26 40 T46 40 T58 40" stroke="var(--synth)" stroke-width="3" fill="none"/><path d="M6 46 Q16 30 26 46 T46 46 T58 46" stroke="var(--synth-glow)" stroke-width="2" fill="none" opacity="0.6"/></svg>';
+    }
+  }
+
+  // fill lobby instrument chips (always shown in full color, just previews)
+  INSTRUMENTS.forEach(instr => {
+    document.getElementById("lobby-glyph-" + instr).innerHTML = glyphSVG(instr);
+  });
+
+  // ======================================================================
+  // LOBBY: simulated room list — this both feeds the "X full rooms
+  // playing / next room missing Y" stat line AND renders as clickable
+  // room cards with per-seat status, so the two stay in sync.
+  // ======================================================================
+  const fullRoomsEl = document.getElementById("lobby-full-rooms");
+  const missingCountEl = document.getElementById("lobby-missing-count");
+  const roomsGridEl = document.getElementById("rooms-grid");
+
+  const ROOM_COUNT = 9;
+  let lobbyRooms = []; // { id, seats: { instr: bool } }
+
+  function randomSeatSet(minFilled, maxFilled) {
+    const n = minFilled + Math.floor(Math.random() * (maxFilled - minFilled + 1));
+    const shuffled = [...INSTRUMENTS].sort(() => Math.random() - 0.5);
+    const filled = new Set(shuffled.slice(0, n));
+    const seats = {};
+    INSTRUMENTS.forEach(i => { seats[i] = filled.has(i); });
+    return seats;
+  }
+
+  function buildLobbyRooms() {
+    lobbyRooms = [];
+    for (let i = 1; i <= ROOM_COUNT; i++) {
+      // bias toward rooms having *something* going on — mostly partially
+      // filled, a couple full, rarely completely empty
+      lobbyRooms.push({ id: i, seats: randomSeatSet(1, 4) });
+    }
+  }
+
+  function roomFilledCount(room) {
+    return INSTRUMENTS.filter(i => room.seats[i]).length;
+  }
+
+  function renderRoomCard(room) {
+    const filled = roomFilledCount(room);
+    const isFull = filled >= 4;
+    const seatsHtml = INSTRUMENTS.map(instr =>
+      '<div class="mini-seat' + (room.seats[instr] ? ' filled' : '') + '" data-instr="' + instr + '"></div>'
+    ).join("");
+    const statusText = isFull ? "Full — playing" : (4 - filled) + (4 - filled === 1 ? " seat open" : " seats open");
+    return (
+      '<div class="room-card ' + (isFull ? "full" : "open") + '" data-room-id="' + room.id + '">' +
+        '<div class="room-card-id">Room #' + room.id + '</div>' +
+        '<div class="room-seats-mini">' + seatsHtml + '</div>' +
+        '<div class="room-card-status">' + statusText + '</div>' +
+      '</div>'
+    );
+  }
+
+  function renderRoomsGrid() {
+    roomsGridEl.innerHTML = lobbyRooms.map(renderRoomCard).join("");
+  }
+
+  function updateLobbyStatsFromRooms() {
+    const fullRooms = lobbyRooms.filter(r => roomFilledCount(r) >= 4).length;
+    fullRoomsEl.textContent = fullRooms;
+
+    // "next room to fill" = the open room closest to full (fewest empty seats)
+    const openRooms = lobbyRooms.filter(r => roomFilledCount(r) < 4);
+    if (openRooms.length === 0) {
+      missingCountEl.textContent = "0";
+    } else {
+      const best = openRooms.reduce((a, b) => (4 - roomFilledCount(a)) <= (4 - roomFilledCount(b)) ? a : b);
+      missingCountEl.textContent = 4 - roomFilledCount(best);
+    }
+  }
+
+  function refreshLobbyRoomsUI() {
+    renderRoomsGrid();
+    updateLobbyStatsFromRooms();
+  }
+
+  function tickLobbyRooms() {
+    // gentle, plausible drift — a handful of seats fill or empty out
+    // elsewhere in the building, same idea as the old fake stat ticker,
+    // just grounded in an actual (simulated) room list now
+    lobbyRooms.forEach(room => {
+      INSTRUMENTS.forEach(instr => {
+        if (Math.random() < 0.06) room.seats[instr] = !room.seats[instr];
+      });
+    });
+    refreshLobbyRoomsUI();
+  }
+
+  buildLobbyRooms();
+  refreshLobbyRoomsUI();
+  setInterval(tickLobbyRooms, 3200);
+
+  roomsGridEl.addEventListener("click", (e) => {
+    const card = e.target.closest(".room-card.open");
+    if (!card) return;
+    const roomId = Number(card.dataset.roomId);
+    const room = lobbyRooms.find(r => r.id === roomId);
+    if (!room || roomFilledCount(room) >= 4) return;
+    joinSpecificRoom(room);
+  });
+
+  // ======================================================================
+  // ROOM: seats, simulated co-players joining, ready-up, countdown
+  // ======================================================================
+  const seatsRowEl = document.getElementById("seats-row");
+  const roomStatusEl = document.getElementById("room-status-msg");
+  const roomHelperEl = document.getElementById("room-helper");
+  const roomIdLabelEl = document.getElementById("room-id-label");
+  const roomCountdownEl = document.getElementById("room-countdown");
+
+  let seatState = {}; // instr -> { filled: bool, ready: bool, isYou: bool }
+  let youInstrument = null;
+  let joinTimers = [];
+  let countdownTimer = null;
+
+  function buildSeats(presetSeats) {
+    seatsRowEl.innerHTML = "";
+    seatState = {};
+    INSTRUMENTS.forEach(instr => {
+      seatState[instr] = {
+        filled: presetSeats ? !!presetSeats[instr] : false,
+        ready: false,
+        isYou: false
+      };
+      const seat = document.createElement("div");
+      seat.className = "seat";
+      seat.dataset.instr = instr;
+      seat.innerHTML =
+        '<div class="seat-glyph">' + glyphSVG(instr) + '</div>' +
+        '<div class="seat-instr-name">' + INSTRUMENT_LABELS[instr] + '</div>' +
+        '<div class="seat-state">Empty seat</div>' +
+        '<div class="ready-key"></div>';
+      seatsRowEl.appendChild(seat);
+    });
+    renderAllSeats();
+  }
+
+  function renderSeat(instr) {
+    const seat = seatsRowEl.querySelector('.seat[data-instr="' + instr + '"]');
+    const s = seatState[instr];
+    const stateEl = seat.querySelector(".seat-state");
+    const keyEl = seat.querySelector(".ready-key");
+    const youBadge = seat.querySelector(".you-badge");
+
+    seat.classList.toggle("empty", !s.filled);
+    seat.classList.toggle("filled", s.filled);
+    seat.classList.toggle("ready", s.ready);
+    seat.classList.toggle("you", s.isYou);
+
+    if (!s.filled) {
+      stateEl.textContent = "Empty seat";
+      keyEl.textContent = "";
+      if (youBadge) youBadge.remove();
+    } else {
+      stateEl.textContent = s.ready ? "Ready" : "Joined";
+      keyEl.textContent = s.ready ? "" : (s.isYou ? "Press Space or tap to ready up" : "Getting ready…");
+      if (s.isYou && !youBadge) {
+        const badge = document.createElement("div");
+        badge.className = "you-badge";
+        badge.textContent = "You";
+        seat.appendChild(badge);
+      }
+    }
+  }
+
+  function renderAllSeats() {
+    INSTRUMENTS.forEach(renderSeat);
+  }
+
+  function filledCount() {
+    return INSTRUMENTS.filter(i => seatState[i].filled).length;
+  }
+  function readyCount() {
+    return INSTRUMENTS.filter(i => seatState[i].filled && seatState[i].ready).length;
+  }
+
+  function updateRoomStatus() {
+    const filled = filledCount();
+    roomStatusEl.textContent = filled + " / 4 joined";
+
+    if (filled < 4) {
+      const missing = 4 - filled;
+      roomHelperEl.textContent = missing === 1
+        ? "Waiting for 1 more player to join…"
+        : "Waiting for " + missing + " more players to join…";
+    } else {
+      const ready = readyCount();
+      if (ready < 4) {
+        roomHelperEl.textContent = "Everyone's here — press Space or tap the screen when ready (" + ready + " / 4 ready).";
+      } else {
+        roomHelperEl.textContent = "Full ensemble, all ready. Starting…";
+        if (screens.room.classList.contains("visible")) beginCountdownIfReady();
+      }
+    }
+  }
+
+  function assignYouToFirstOpenSeat() {
+    const open = INSTRUMENTS.filter(i => !seatState[i].filled);
+    const pick = open[Math.floor(Math.random() * open.length)];
+    youInstrument = pick || INSTRUMENTS[0];
+    seatState[youInstrument].filled = true;
+    seatState[youInstrument].isYou = true;
+    renderSeat(youInstrument);
+    updateRoomStatus();
+  }
+
+  function simulateOthersJoining() {
+    const remaining = INSTRUMENTS.filter(i => !seatState[i].filled);
+    // shuffle order a little so it doesn't always fill left-to-right
+    remaining.sort(() => Math.random() - 0.5);
+    remaining.forEach((instr, idx) => {
+      const delay = 1400 + idx * (1200 + Math.random() * 1800);
+      const timer = setTimeout(() => {
+        seatState[instr].filled = true;
+        renderSeat(instr);
+        updateRoomStatus();
+      }, delay);
+      joinTimers.push(timer);
+    });
+  }
+
+  function markReady(instr) {
+    const s = seatState[instr];
+    if (!s || !s.filled || s.ready) return;
+    s.ready = true;
+    renderSeat(instr);
+    playReadyChirp();
+    updateRoomStatus();
+  }
+
+  let countdownStarted = false;
+  function beginCountdownIfReady() {
+    if (countdownStarted) return;
+    if (filledCount() < 4 || readyCount() < 4) return;
+    countdownStarted = true;
+    let n = 3;
+    roomCountdownEl.textContent = n;
+    roomCountdownEl.classList.add("visible");
+    roomHelperEl.textContent = "";
+    countdownTimer = setInterval(() => {
+      n--;
+      if (n <= 0) {
+        clearInterval(countdownTimer);
+        enterGame();
+      } else {
+        roomCountdownEl.textContent = n;
+      }
+    }, 800);
+  }
+
+  function resetRoom(roomId, presetSeats) {
+    joinTimers.forEach(t => clearTimeout(t));
+    joinTimers = [];
+    if (countdownTimer) clearInterval(countdownTimer);
+    countdownStarted = false;
+    roomCountdownEl.classList.remove("visible");
+    roomIdLabelEl.textContent = "#" + (roomId != null ? roomId : (100 + Math.floor(Math.random() * 900)));
+    buildSeats(presetSeats);
+  }
+
+  // Join a specific room from the lobby's room list — seats it already
+  // shows as occupied are pre-filled here (they were "already there"
+  // when you walked in); any remaining open seats still fill in over
+  // time via simulateOthersJoining, same as before.
+  function joinSpecificRoom(room) {
+    ensureAudio();
+    if (actx.state === "suspended") actx.resume();
+    resetRoom(room.id, room.seats);
+    assignYouToFirstOpenSeat();
+    simulateOthersJoining();
+    showScreen("room");
+  }
+
+  function enterRoomFlow() {
+    ensureAudio();
+    if (actx.state === "suspended") actx.resume();
+    const openRooms = lobbyRooms.filter(r => roomFilledCount(r) < 4);
+    let room = openRooms[Math.floor(Math.random() * openRooms.length)];
+    if (!room) {
+      // extremely unlikely all rooms are full at once — spin up a fresh one
+      room = { id: lobbyRooms.length + 1, seats: randomSeatSet(0, 0) };
+      lobbyRooms.push(room);
+    }
+    joinSpecificRoom(room);
+  }
+
+  // listen for ready-up: you press Space, or tap/click anywhere on the
+  // screen, to ready up — matching the actual in-game control (everyone
+  // hits their own space bar / taps their own screen)
+  window.addEventListener("keydown", (e) => {
+    if (!screens.room.classList.contains("visible")) return;
+    if (e.code === "Space" || e.key === " ") {
+      e.preventDefault();
+      if (youInstrument) markReady(youInstrument);
+    }
+  });
+  screens.room.addEventListener("click", () => {
+    if (youInstrument) markReady(youInstrument);
+  });
+
+  // simulated co-players auto-ready themselves a moment after joining
+  function autoReadyOthersWatcher() {
+    INSTRUMENTS.forEach(instr => {
+      const s = seatState[instr];
+      if (s.filled && !s.isYou && !s.ready && !s._readyTimerSet) {
+        s._readyTimerSet = true;
+        const delay = 500 + Math.random() * 1400;
+        setTimeout(() => markReady(instr), delay);
+      }
+    });
+  }
+  setInterval(autoReadyOthersWatcher, 300);
+
+  document.getElementById("joinBtn").addEventListener("click", enterRoomFlow);
+
+  // ======================================================================
+  // GAME (existing rhythm experience)
+  // ======================================================================
+  const TRAVEL_MS = 2200;
+  const HIT_WINDOW_MS = 160;
+  const MISS_GRACE_MS = 140;
+
+  function buildChart() {
+    const chart = [];
+    let t = 1500;
+    const bar = 900;
+    const pattern = [
+      ["bowl"], ["chime"], ["handpan"], ["chime"],
+      ["bowl", "synth"], ["chime"], ["handpan"], ["chime"],
+      ["bowl"], ["handpan"], ["chime"], ["synth"],
+      ["bowl", "chime"], ["handpan"], ["synth"], ["chime"],
+    ];
+    for (let rep = 0; rep < 3; rep++) {
+      pattern.forEach(group => {
+        group.forEach(instr => chart.push({ t, instr }));
+        t += bar;
+      });
+    }
+    chart.sort((a, b) => a.t - b.t);
+    return chart;
+  }
+
+  let chart = [];
+  let songStart = 0;
+  let rafId = null;
+  let playing = false;
+  let combo = 0;
+  let maxCombo = 0;
+  let hits = 0;
+  let total = 0;
+  let nextSpawnIndex = 0;
+  const activeNotes = [];
+
+  const lanesEl = document.getElementById("lanes");
+  const startBtn = document.getElementById("startBtn");
+  const muteBtn = document.getElementById("muteBtn");
+  const resultsModalEl = document.getElementById("results-modal");
+  const comboEl = document.getElementById("combo-value");
+  const accEl = document.getElementById("acc-value");
+  const statusEl = document.getElementById("status-msg");
+
+  const combinedLaneEl = lanesEl.querySelector(".lane-combined");
+  INSTRUMENTS.forEach(instr => { ZONE_COLORS[instr] = getCss("--" + instr + "-glow"); });
+
+  const HITLINE_PX = 90;
+  document.documentElement.style.setProperty("--hitline-x", HITLINE_PX + "px");
+
+  // Each instrument gets its own vertical band within the single combined
+  // lane, so simultaneous notes from different instruments don't sit
+  // exactly on top of one another. Order is fixed and matches the stage's
+  // left-to-right order.
+  const LANE_ROWS = { bowl: 0.20, handpan: 0.40, chime: 0.62, synth: 0.82 };
+
+  function fireRing(instr, color) {
+    const zone = document.querySelector('#screen-game .zone[data-instr="' + instr + '"]');
+    if (!zone) return;
+    const ring = document.createElement("div");
+    ring.className = "ring firing";
+    ring.style.setProperty("--ring-color", color);
+    ring.style.left = "50%";
+    ring.style.top = "56%";
+    ring.style.marginLeft = "-15px";
+    ring.style.marginTop = "-15px";
+    zone.appendChild(ring);
+    ring.addEventListener("animationend", () => ring.remove());
+  }
+
+  function flashZoneHit(instr) {
+    const zone = document.querySelector('#screen-game .zone[data-instr="' + instr + '"]');
+    if (!zone || zone.classList.contains("vacant")) return;
+    zone.classList.remove("miss");
+    zone.classList.add("hit", "active-zone");
+    fireRing(instr, ZONE_COLORS[instr]);
+    setTimeout(() => zone.classList.remove("hit", "active-zone"), 180);
+  }
+
+  function flashZoneMiss(instr) {
+    const zone = document.querySelector('#screen-game .zone[data-instr="' + instr + '"]');
+    if (!zone || zone.classList.contains("vacant")) return;
+    zone.classList.remove("hit");
+    zone.classList.add("miss");
+    const flash = document.getElementById("flash-" + instr);
+    flash.classList.remove("firing");
+    void flash.offsetWidth;
+    flash.classList.add("firing");
+    setTimeout(() => zone.classList.remove("miss"), 260);
+  }
+
+  function lightKey(on) {
+    const el = document.getElementById("kbtn-you");
+    if (!el) return;
+    if (on) {
+      el.style.borderColor = ZONE_COLORS[youInstrument] || "";
+      el.style.background = "rgba(255,255,255,0.12)";
+    } else {
+      el.style.borderColor = "";
+      el.style.background = "";
+    }
+  }
+
+  // ---------- Stage vacancy (player left mid-song / rejoined) ----------
+  function setZoneVacant(instr, vacant) {
+    const zone = document.querySelector('#screen-game .zone[data-instr="' + instr + '"]');
+    if (!zone) return;
+    zone.classList.toggle("vacant", vacant);
+    zone.classList.toggle("you", !vacant && instr === youInstrument);
+  }
+
+  function applySeatStateToStage() {
+    INSTRUMENTS.forEach(instr => {
+      const filled = seatState[instr] && seatState[instr].filled;
+      setZoneVacant(instr, !filled);
+    });
+  }
+
+  function isInstrumentPresent(instr) {
+    return !!(seatState[instr] && seatState[instr].filled);
+  }
+
+  function spawnNote(noteData) {
+    const el = document.createElement("div");
+    const mineClass = noteData.instr === youInstrument ? "mine" : "not-mine";
+    el.className = "note " + noteData.instr + " " + mineClass;
+    el.style.color = ZONE_COLORS[noteData.instr]; // feeds .mine's box-shadow currentColor
+    combinedLaneEl.appendChild(el);
+
+    const popEl = document.createElement("div");
+    popEl.className = "judge-pop";
+    combinedLaneEl.appendChild(popEl);
+
+    activeNotes.push({
+      el, popEl, time: noteData.t, instr: noteData.instr, judged: false,
+      autoResolveAt: noteData.instr === youInstrument ? null : noteData.t + (Math.random() * 80 - 20),
+      autoWillHit: Math.random() < 0.82, // simulated co-players mostly succeed, sometimes miss
+    });
+  }
+
+  function laneWidth() { return lanesEl.getBoundingClientRect().width; }
+  function laneHeight() { return lanesEl.getBoundingClientRect().height; }
+
+  function updateNotes(nowMs) {
+    const width = laneWidth();
+    const height = laneHeight();
+    const spawnX = width + 40;
+
+    for (let i = activeNotes.length - 1; i >= 0; i--) {
+      const n = activeNotes[i];
+
+      // an instrument whose seat is currently empty: its notes still
+      // scroll by (visible absence) but are never judged, never sound,
+      // and simply fade out past the line
+      const present = isInstrumentPresent(n.instr);
+
+      const dt = n.time - nowMs;
+      const progress = 1 - dt / TRAVEL_MS;
+      const x = spawnX - progress * (spawnX - HITLINE_PX);
+      n.el.style.left = x + "px";
+      n.el.style.top = (LANE_ROWS[n.instr] * height) + "px";
+      n.el.classList.toggle("vacant", !present);
+
+      if (present && !n.judged) {
+        // simulated co-players resolve themselves automatically near
+        // their note's scheduled time, as if hitting their own space bar
+        if (n.instr !== youInstrument && n.autoResolveAt !== null && nowMs >= n.autoResolveAt) {
+          if (n.autoWillHit) judgeHit(n); else judgeMiss(n);
+        } else if (dt < -MISS_GRACE_MS) {
+          judgeMiss(n);
+        }
+      } else if (!present && dt < -MISS_GRACE_MS && !n.judged) {
+        // vacant seat: quietly retire the note, no judgement, no penalty
+        n.judged = true;
+      }
+
+      if (progress > 1.3) {
+        n.el.remove();
+        n.popEl.remove();
+        activeNotes.splice(i, 1);
+      }
+    }
+  }
+
+  function showPop(n, good) {
+    n.popEl.classList.remove("show", "good", "bad");
+    n.popEl.style.top = (LANE_ROWS[n.instr] * laneHeight()) + "px";
+    n.popEl.textContent = good ? "Resonant" : "Faded";
+    void n.popEl.offsetWidth;
+    n.popEl.classList.add("show", good ? "good" : "bad");
+  }
+
+  function judgeHit(n) {
+    n.judged = true;
+    n.el.classList.add("judged", "good");
+    showPop(n, true);
+    // combo/accuracy reflect the whole ensemble's notes, not just yours —
+    // a note only ever reaches judgeHit/judgeMiss when its seat is
+    // present (see updateNotes' `present` gate), so a departed player's
+    // seat simply stops contributing instead of breaking the combo.
+    combo += 1;
+    if (combo > maxCombo) maxCombo = combo;
+    hits += 1;
+    total += 1;
+    updateStats();
+    flashZoneHit(n.instr);
+    playInstrumentNote(n.instr);
+    setTimeout(() => { n.el.remove(); }, 200);
+  }
+
+  function judgeMiss(n) {
+    n.judged = true;
+    n.el.classList.add("judged", "bad");
+    showPop(n, false);
+    combo = 0;
+    total += 1;
+    updateStats();
+    flashZoneMiss(n.instr);
+    setTimeout(() => { n.el.remove(); }, 200);
+  }
+
+  function updateStats() {
+    comboEl.textContent = combo;
+    accEl.textContent = total === 0 ? "—" : Math.round((hits / total) * 100) + "%";
+  }
+
+  function tryHit() {
+    lightKey(true);
+    setTimeout(() => lightKey(false), 100);
+    if (!playing || !youInstrument) return;
+    if (!isInstrumentPresent(youInstrument)) return; // you can't hit while your own seat shows vacant (shouldn't happen, but safe)
+
+    let best = null;
+    let bestDelta = Infinity;
+    const nowMs = performance.now() - songStart;
+    activeNotes.forEach(n => {
+      if (n.instr !== youInstrument || n.judged) return;
+      const delta = Math.abs(n.time - nowMs);
+      if (delta < bestDelta) { bestDelta = delta; best = n; }
+    });
+
+    if (best && bestDelta <= HIT_WINDOW_MS) {
+      judgeHit(best);
+    } else if (best && bestDelta <= HIT_WINDOW_MS + MISS_GRACE_MS) {
+      judgeMiss(best);
+    } else {
+      flashZoneMiss(youInstrument);
+      setTimeout(() => {
+        const zone = document.querySelector('#screen-game .zone[data-instr="' + youInstrument + '"]');
+        if (zone) zone.classList.remove("miss");
+      }, 180);
+    }
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (!screens.game.classList.contains("visible")) return;
+    if (e.code === "Space" || e.key === " ") {
+      e.preventDefault();
+      tryHit();
+    }
+  });
+
+  screens.game.addEventListener("click", (e) => {
+    if (e.target.closest("#topbar") || e.target.closest("#results-modal")) return; // don't hit notes when tapping controls or the results popup
+    tryHit();
+  });
+
+  // ---------- Mid-song departures & rejoins ----------
+  // Automatically, at random points during the song, a simulated
+  // co-player's seat can go vacant (their section greys out, their notes
+  // stop sounding) and later a new simulated player can take that empty
+  // seat again — same join behavior as the lobby, just happening live.
+  let driftTimer = null;
+  let rejoinTimers = [];
+
+  function maybeToggleVacancy() {
+    if (!playing) return;
+    const candidates = INSTRUMENTS.filter(i => i !== youInstrument);
+
+    candidates.forEach(instr => {
+      const s = seatState[instr];
+      if (!s) return;
+      if (s.filled && !s._departing && Math.random() < 0.05) {
+        // this player leaves — but they always come back, on a timer
+        // set the moment they go, so it's never left to chance whether
+        // they return within the song.
+        s.filled = false;
+        s.ready = false;
+        s._readyTimerSet = false;
+        s._departing = true;
+        applySeatStateToStage();
+        updateRoomStatus();
+
+        const rejoinDelay = 3000 + Math.random() * 4000; // 3–7s away, then back
+        const timer = setTimeout(() => {
+          s.filled = true;
+          s.ready = true; // returning mid-song, ready immediately
+          s._departing = false;
+          applySeatStateToStage();
+          updateRoomStatus();
+        }, rejoinDelay);
+        rejoinTimers.push(timer);
+      }
+    });
+  }
+
+  function startDriftWatcher() {
+    if (driftTimer) clearInterval(driftTimer);
+    driftTimer = setInterval(maybeToggleVacancy, 2600);
+  }
+  function stopDriftWatcher() {
+    if (driftTimer) clearInterval(driftTimer);
+    driftTimer = null;
+    rejoinTimers.forEach(t => clearTimeout(t));
+    rejoinTimers = [];
+  }
+
+  function loop() {
+    if (!playing) return;
+    const t = performance.now() - songStart;
+    while (nextSpawnIndex < chart.length && chart[nextSpawnIndex].t - TRAVEL_MS <= t) {
+      spawnNote(chart[nextSpawnIndex]);
+      nextSpawnIndex++;
+    }
+    updateNotes(t);
+    if (nextSpawnIndex >= chart.length && activeNotes.length === 0) {
+      endSong();
+      return;
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function startSong() {
+    ensureAudio();
+    if (actx.state === "suspended") actx.resume();
+    startBackgroundBed();
+
+    const youLabel = document.getElementById("you-instr-label");
+    if (youLabel && youInstrument) {
+      youLabel.textContent = "Your " + INSTRUMENT_LABELS[youInstrument];
+    }
+    applySeatStateToStage();
+
+    chart = buildChart();
+    songStart = performance.now();
+    nextSpawnIndex = 0;
+    combo = 0; maxCombo = 0; hits = 0; total = 0;
+    activeNotes.forEach(n => { n.el.remove(); n.popEl.remove(); });
+    activeNotes.length = 0;
+    updateStats();
+    playing = true;
+    startBtn.textContent = "Back to lobby";
+    statusEl.textContent = "Hit Space or tap anywhere on the screen as your colored notes cross the line.";
+    rafId = requestAnimationFrame(loop);
+    startDriftWatcher();
+  }
+
+  function showResultsModal() {
+    document.getElementById("modal-combo").textContent = maxCombo;
+    document.getElementById("modal-total").textContent = chart.length;
+    resultsModalEl.classList.add("visible");
+  }
+
+  function hideResultsModal() {
+    resultsModalEl.classList.remove("visible");
+  }
+
+  function endSong() {
+    playing = false;
+    startBtn.textContent = "Back to lobby";
+    const acc = total === 0 ? 0 : Math.round((hits / total) * 100);
+    statusEl.textContent = "Song complete — " + hits + "/" + total + " notes resonant (" + acc + "%).";
+    stopBackgroundBed();
+    stopDriftWatcher();
+    if (rafId) cancelAnimationFrame(rafId);
+    showResultsModal();
+  }
+
+  function enterGame() {
+    showScreen("game");
+    startSong();
+  }
+
+  function returnToLobby() {
+    hideResultsModal();
+    stopDriftWatcher();
+    if (playing) {
+      playing = false;
+      stopBackgroundBed();
+      if (rafId) cancelAnimationFrame(rafId);
+    }
+    activeNotes.forEach(n => { n.el.remove(); n.popEl.remove(); });
+    activeNotes.length = 0;
+    startBtn.textContent = "Start song";
+    showScreen("lobby");
+  }
+
+  startBtn.addEventListener("click", () => {
+    if (startBtn.textContent === "Start song") {
+      startSong();
+    } else {
+      returnToLobby();
+    }
+  });
+
+  document.getElementById("modal-lobby-btn").addEventListener("click", returnToLobby);
+
+
+  let muted = false;
+  muteBtn.addEventListener("click", () => {
+    ensureAudio();
+    muted = !muted;
+    masterGain.gain.linearRampToValueAtTime(muted ? 0 : 0.85, now() + 0.08);
+    muteBtn.textContent = muted ? "🔇" : "🔊";
+    muteBtn.classList.toggle("muted", muted);
+  });
+
+  // initial seat scaffolding so the room screen isn't empty if inspected early
+  buildSeats();
+
+})();
+</script>
+
+</body>
+</html>
